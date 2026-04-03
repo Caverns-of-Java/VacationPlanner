@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <title>Itinerary — Vacation Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a id="back-link" href="trip.html" class="back-link">← Trip Menu</a>
+    <h1>Itinerary</h1>
+  </header>
+
+  <main>
+    <div id="itinerary-container"></div>
+  </main>
+
+  <script src="js/pwa.js"></script>
+  <script type="module">
+    import { getDestinations, getItinerary } from './js/api.js';
+    import { getParam, navigate } from './js/router.js';
+    import { showLoading, showError } from './js/ui.js';
+    import { renderItinerary } from './js/itinerary.js';
+
+    const tripId   = getParam('trip_id');
+    const tripName = getParam('trip_name');
+    const container = document.getElementById('itinerary-container');
+    const backLink  = document.getElementById('back-link');
+
+    if (!tripId) {
+      window.location.href = 'index.html';
+    } else {
+      const params = new URLSearchParams({ trip_id: tripId });
+      if (tripName) params.set('trip_name', tripName);
+      backLink.href = `trip.html?${params.toString()}`;
+    }
+
+    showLoading(container);
+
+    Promise.all([getItinerary(tripId), getDestinations(tripId)])
+      .then(([groupedDays, destinations]) => {
+        const destinationLookup = Object.fromEntries(
+          destinations.map(dest => [String(dest.destination_id), dest.name])
+        );
+
+        renderItinerary(container, groupedDays, destinationLookup, entry => {
+          navigate('destinations.html', {
+            trip_id: tripId,
+            trip_name: tripName || '',
+            destination_id: entry.destination_id,
+          });
+        });
+      })
+      .catch(() => showError(container, 'Could not load itinerary.'));
+  </script>
+</body>
+</html>

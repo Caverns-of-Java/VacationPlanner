@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <title>Destinations — Vacation Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+</head>
+<body>
+  <header class="site-header">
+    <a id="back-link" href="trip.html" class="back-link">← Trip Menu</a>
+    <h1>Destinations</h1>
+  </header>
+
+  <main class="destinations-layout">
+    <div id="destinations-container" class="tile-grid"></div>
+    <aside id="detail-panel" class="detail-panel hidden"></aside>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/pwa.js"></script>
+  <script type="module">
+    import { getDestinations } from './js/api.js';
+    import { getParam } from './js/router.js';
+    import { renderTiles, renderDetailCard, showLoading, showError } from './js/ui.js';
+    import { initStreetMap, addMarkers } from './js/map.js';
+
+    const tripId   = getParam('trip_id');
+    const tripName = getParam('trip_name');
+    const selectedDestinationId = getParam('destination_id');
+    const container   = document.getElementById('destinations-container');
+    const detailPanel = document.getElementById('detail-panel');
+    const backLink    = document.getElementById('back-link');
+    let destinationMap = null;
+
+    if (!tripId) {
+      window.location.href = 'index.html';
+    } else {
+      const params = new URLSearchParams({ trip_id: tripId });
+      if (tripName) params.set('trip_name', tripName);
+      backLink.href = `trip.html?${params.toString()}`;
+    }
+
+    function nl2br(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+    }
+
+    function removeDestinationMap() {
+      if (!destinationMap) return;
+      destinationMap.remove();
+      destinationMap = null;
+    }
+
+    function hasCoordinates(dest) {
+      const lat = Number.parseFloat(dest?.lat);
+      const lng = Number.parseFloat(dest?.lng);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    }
+
+    function showDestinationDetail(dest) {
+      removeDestinationMap();
+      detailPanel.classList.remove('hidden');
+      renderDetailCard(detailPanel, dest, d => `
+        <button class="detail-close" id="close-detail">✕ Close</button>
+        ${d.media_url
+          ? (d.media_url.toLowerCase().endsWith('.pdf')
+              ? `<iframe src="${d.media_url}" class="media-frame" title="${d.name}"></iframe>`
+              : `<img src="${d.media_url}" class="media-img" alt="${d.name}">`)
+          : ''}
+        <h2>${d.name}</h2>
+        ${d.category ? `<span class="tile-tag">${d.category}</span>` : ''}
+        ${d.address     ? `<p><strong>Address:</strong> ${nl2br(d.address)}</p>` : ''}
+        ${d.description ? `<p>${nl2br(d.description)}</p>` : ''}
+        ${d.directions_text ? `<p><strong>Directions:</strong><br>${nl2br(d.directions_text)}</p>` : ''}
+        ${d.notes ? `<p class="tile-notes">${nl2br(d.notes)}</p>` : ''}
+        <section class="destination-map-section">
+          <h3>Street Map</h3>
+          ${hasCoordinates(d)
+            ? '<div id="destination-street-map" class="leaflet-map destination-leaflet-map"></div>'
+            : '<p class="empty">No location coordinates are saved for this destination.</p>'}
+        </section>
+      `);
+
+      if (hasCoordinates(dest)) {
+        const lat = Number.parseFloat(dest.lat);
+        const lng = Number.parseFloat(dest.lng);
+        destinationMap = initStreetMap('destination-street-map', lat, lng, 15);
+        addMarkers(destinationMap, [dest]);
+        setTimeout(() => destinationMap?.invalidateSize(), 0);
+      }
+
+      document.getElementById('close-detail')?.addEventListener('click', () => {
+        removeDestinationMap();
+        detailPanel.classList.add('hidden');
+      });
+
+      detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    showLoading(container);
+
+    getDestinations(tripId)
+      .then(destinations => {
+        renderTiles(
+          container,
+          destinations,
+          dest => `
+            <div class="tile-body">
+              <h2 class="tile-title">${dest.name}</h2>
+              ${dest.category ? `<span class="tile-tag">${dest.category}</span>` : ''}
+              ${dest.address  ? `<p class="tile-address">${dest.address}</p>` : ''}
+            </div>
+          `,
+          dest => showDestinationDetail(dest)
+        );
+
+        if (selectedDestinationId) {
+          const matchedDestination = destinations.find(dest => String(dest.destination_id) === String(selectedDestinationId));
+          if (matchedDestination) {
+            showDestinationDetail(matchedDestination);
+          }
+        }
+      })
+      .catch(() => showError(container, 'Could not load destinations.'));
+  </script>
+</body>
+</html>

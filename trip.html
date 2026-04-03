@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <title>Trip — Vacation Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a href="index.html" class="back-link">← All Trips</a>
+    <h1 id="trip-title">Trip</h1>
+  </header>
+
+  <main>
+    <nav id="trip-nav" class="tile-grid nav-grid"></nav>
+  </main>
+
+  <script src="js/pwa.js"></script>
+  <script type="module">
+    import { getParam } from './js/router.js';
+
+    const tripId = getParam('trip_id');
+    if (!tripId) {
+      window.location.href = 'index.html';
+    }
+
+    const tripName = getParam('trip_name');
+    if (tripName) {
+      document.getElementById('trip-title').textContent = tripName;
+      document.title = `${tripName} — Vacation Planner`;
+    }
+
+    const nav = document.getElementById('trip-nav');
+    const links = [
+      { label: 'Destinations', icon: '📍', page: 'destinations.html' },
+      { label: 'Maps',         icon: '🗺️', page: 'maps.html' },
+      { label: 'Itinerary',   icon: '📅', page: 'itinerary.html' },
+    ];
+
+    links.forEach(({ label, icon, page }) => {
+      const params = new URLSearchParams({ trip_id: tripId });
+      if (tripName) params.set('trip_name', tripName);
+
+      const tile = document.createElement('a');
+      tile.className = 'tile nav-tile';
+      tile.href = `${page}?${params.toString()}`;
+      tile.innerHTML = `<span class="nav-icon">${icon}</span><span class="nav-label">${label}</span>`;
+      nav.appendChild(tile);
+    });
+  </script>
+</body>
+</html>

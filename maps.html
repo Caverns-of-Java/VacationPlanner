@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <title>Maps — Vacation Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+</head>
+<body>
+  <header class="site-header">
+    <a id="back-link" href="trip.html" class="back-link">← Trip Menu</a>
+    <h1>Maps</h1>
+  </header>
+
+  <main>
+    <section class="map-section">
+      <h2>Public Transport Maps</h2>
+      <div id="pt-map-container" class="media-container"></div>
+    </section>
+
+    <section class="map-section">
+      <h2>Street Map</h2>
+      <div id="street-map" class="leaflet-map"></div>
+    </section>
+  </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="js/pwa.js"></script>
+  <script type="module">
+    import { getMaps, getDestinations } from './js/api.js';
+    import { getParam } from './js/router.js';
+    import { showLoading, showError } from './js/ui.js';
+    import { initStreetMap, addMarkers, renderPTMap } from './js/map.js';
+
+    const tripId   = getParam('trip_id');
+    const tripName = getParam('trip_name');
+    const ptContainer = document.getElementById('pt-map-container');
+    const backLink    = document.getElementById('back-link');
+
+    function getDisplayOrder(item) {
+      const value = Number(item.display_order);
+      return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+    }
+
+    function buildMapHeading(ptMap, index) {
+      return ptMap.notes || ptMap.title || `Map ${index + 1}`;
+    }
+
+    if (!tripId) {
+      window.location.href = 'index.html';
+    } else {
+      const params = new URLSearchParams({ trip_id: tripId });
+      if (tripName) params.set('trip_name', tripName);
+      backLink.href = `trip.html?${params.toString()}`;
+    }
+
+    showLoading(ptContainer);
+
+    Promise.all([getMaps(tripId), getDestinations(tripId)])
+      .then(([maps, destinations]) => {
+        const orderedMaps = [...maps].sort((a, b) => getDisplayOrder(a) - getDisplayOrder(b));
+        const ptMaps = orderedMaps.filter(m => m.map_type === 'public_transport' && m.media_url);
+
+        if (ptMaps.length > 0) {
+          ptContainer.innerHTML = '';
+          ptMaps.forEach((ptMap, index) => {
+            const wrapper = document.createElement('section');
+            wrapper.className = 'map-card';
+
+            const mediaId = `pt-map-${index}`;
+            const buttonId = `pt-map-button-${index}`;
+            const panelId = `pt-map-panel-${index}`;
+            wrapper.innerHTML = `
+              <button
+                id="${buttonId}"
+                class="map-card-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="${panelId}"
+              >
+                <span class="map-card-title">${buildMapHeading(ptMap, index)}</span>
+                <span class="map-card-chevron" aria-hidden="true">+</span>
+              </button>
+              <div id="${panelId}" class="map-card-panel hidden">
+                <div id="${mediaId}" class="media-container"></div>
+                ${ptMap.attribution ? `<p class="map-attribution">${ptMap.attribution}</p>` : ''}
+              </div>
+            `;
+
+            ptContainer.appendChild(wrapper);
+
+            const toggle = wrapper.querySelector(`#${buttonId}`);
+            const panel = wrapper.querySelector(`#${panelId}`);
+            const chevron = wrapper.querySelector('.map-card-chevron');
+            let isRendered = false;
+
+            toggle.addEventListener('click', () => {
+              const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+              toggle.setAttribute('aria-expanded', String(!isOpen));
+              panel.classList.toggle('hidden', isOpen);
+              chevron.textContent = isOpen ? '+' : '−';
+
+              if (!isOpen && !isRendered) {
+                renderPTMap(mediaId, ptMap.media_url);
+                isRendered = true;
+              }
+            });
+          });
+        } else {
+          ptContainer.innerHTML = '<p class="empty">No public transport map available.</p>';
+        }
+
+        try {
+          const streetMap = orderedMaps.find(m => m.map_type === 'street');
+          const first = destinations.find(d => d.lat && d.lng);
+          const lat  = first ? parseFloat(first.lat)  : 51.505;
+          const lng  = first ? parseFloat(first.lng)  : -0.09;
+          const zoom = 13;
+
+          const map = initStreetMap('street-map', lat, lng, zoom);
+          addMarkers(map, destinations);
+
+          if (streetMap?.attribution) {
+            document.getElementById('street-map').insertAdjacentHTML(
+              'afterend',
+              `<p class="map-attribution">${streetMap.attribution}</p>`
+            );
+          }
+        } catch (error) {
+          document.getElementById('street-map').outerHTML =
+            '<p class="error">Street map could not be initialised.</p>';
+          console.error(error);
+        }
+      })
+      .catch(() => showError(ptContainer, 'Could not load map data.'));
+  </script>
+</body>
+</html>

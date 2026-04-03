@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <title>Vacation Planner</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>Vacation Planner</h1>
+  </header>
+
+  <main>
+    <div id="trips-container" class="tile-grid"></div>
+  </main>
+
+  <script src="js/pwa.js"></script>
+  <script type="module">
+    import { getTrips } from './js/api.js';
+    import { navigate } from './js/router.js';
+    import { renderTiles, showLoading, showError } from './js/ui.js';
+
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (isNaN(d)) return value;
+      return d.toLocaleDateString('en-GB'); // DD/MM/YYYY
+    }
+
+    const container = document.getElementById('trips-container');
+    showLoading(container);
+
+    getTrips()
+      .then(trips => {
+        renderTiles(
+          container,
+          trips,
+          trip => `
+            ${trip.cover_image_url
+              ? `<img src="${trip.cover_image_url}" class="tile-img" alt="${trip.trip_name}">`
+              : ''}
+            <div class="tile-body">
+              <h2 class="tile-title">${trip.trip_name}</h2>
+              <p class="tile-dates">${formatDate(trip.start_date)} – ${formatDate(trip.end_date)}</p>
+              ${trip.notes ? `<p class="tile-notes">${trip.notes}</p>` : ''}
+            </div>
+          `,
+          trip => navigate('trip.html', { trip_id: trip.trip_id, trip_name: trip.trip_name })
+        );
+      })
+      .catch(() => showError(container, 'Could not load trips. Check your API configuration in js/api.js.'));
+  </script>
+</body>
+</html>

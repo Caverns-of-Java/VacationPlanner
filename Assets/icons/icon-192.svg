@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Vacation Planner icon">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="176" height="176" rx="36" fill="url(#bg)"/>
+  <path d="M48 116c0-30 20-48 48-48 20 0 38 10 48 30l-18 10c-6-12-16-18-30-18-16 0-28 10-30 26h38v18H48v-18z" fill="#ffffff"/>
+</svg>
