@@ -60,6 +60,69 @@ export function renderPTMap(containerId, mediaUrl) {
   }
 }
 
+/**
+ * Returns the great-circle distance in kilometres between two coordinates
+ * using the Haversine formula.
+ */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Shows the user's current location on the map using the browser Geolocation API.
+ * Adds a circle marker and an accuracy circle, then pans to the position.
+ *
+ * If `referencePoints` is provided (array of objects with lat/lng properties),
+ * the marker is only shown when the user is within `maxDistanceKm` of at least
+ * one reference point.
+ *
+ * @param {L.Map}    map
+ * @param {Array}    [referencePoints]   Array of objects with lat & lng properties
+ * @param {number}   [maxDistanceKm=30]
+ */
+export function showCurrentLocation(map, referencePoints = null, maxDistanceKm = 30) {
+  map.locate({ setView: false, maxZoom: 16, enableHighAccuracy: true, timeout: 10000 });
+
+  map.once('locationfound', e => {
+    if (referencePoints && referencePoints.length > 0) {
+      const nearby = referencePoints.some(p => {
+        const lat = Number.parseFloat(p.lat);
+        const lng = Number.parseFloat(p.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+        return haversineKm(e.latlng.lat, e.latlng.lng, lat, lng) <= maxDistanceKm;
+      });
+      if (!nearby) return;
+    }
+
+    L.circleMarker(e.latlng, {
+      radius: 8,
+      color: '#2563eb',
+      fillColor: '#2563eb',
+      fillOpacity: 0.9,
+      weight: 2,
+    })
+      .addTo(map)
+      .bindPopup('You are here')
+      .openPopup();
+
+    if (e.accuracy) {
+      L.circle(e.latlng, { radius: e.accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.08 })
+        .addTo(map);
+    }
+  });
+
+  map.once('locationerror', () => {
+    console.warn('Current location unavailable.');
+  });
+}
+
 function getPdfEmbedUrl(mediaUrl) {
   const normalizedUrl = mediaUrl.trim().replace(/\\/g, '/').replace(/ /g, '%20');
 

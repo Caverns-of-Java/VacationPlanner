@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.json">
@@ -19,9 +20,11 @@
   </header>
 
   <main class="destinations-layout">
-    <div id="destinations-container" class="tile-grid"></div>
-    <aside id="detail-panel" class="detail-panel hidden"></aside>
+    <div id="destinations-container" class="category-groups"></div>
   </main>
+
+  <div id="detail-backdrop" class="detail-backdrop hidden"></div>
+  <aside id="detail-panel" class="detail-panel hidden"></aside>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -32,15 +35,31 @@
     import { getDestinations } from './js/api.js';
     import { getParam } from './js/router.js';
     import { renderTiles, renderDetailCard, showLoading, showError } from './js/ui.js';
-    import { initStreetMap, addMarkers } from './js/map.js';
+    import { initStreetMap, addMarkers, showCurrentLocation } from './js/map.js';
 
     const tripId   = getParam('trip_id');
     const tripName = getParam('trip_name');
     const selectedDestinationId = getParam('destination_id');
     const container   = document.getElementById('destinations-container');
     const detailPanel = document.getElementById('detail-panel');
+    const backdrop    = document.getElementById('detail-backdrop');
     const backLink    = document.getElementById('back-link');
     let destinationMap = null;
+
+    function openPanel() {
+      detailPanel.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      document.body.classList.add('modal-open');
+    }
+
+    function closePanel() {
+      removeDestinationMap();
+      detailPanel.classList.add('hidden');
+      backdrop.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    }
+
+    backdrop.addEventListener('click', closePanel);
 
     if (!tripId) {
       window.location.href = 'index.html';
@@ -69,7 +88,7 @@
 
     function showDestinationDetail(dest) {
       removeDestinationMap();
-      detailPanel.classList.remove('hidden');
+      openPanel();
       renderDetailCard(detailPanel, dest, d => `
         <button class="detail-close" id="close-detail">✕ Close</button>
         ${d.media_url
@@ -96,33 +115,95 @@
         const lng = Number.parseFloat(dest.lng);
         destinationMap = initStreetMap('destination-street-map', lat, lng, 15);
         addMarkers(destinationMap, [dest]);
+        showCurrentLocation(destinationMap, [dest]);
         setTimeout(() => destinationMap?.invalidateSize(), 0);
       }
 
-      document.getElementById('close-detail')?.addEventListener('click', () => {
-        removeDestinationMap();
-        detailPanel.classList.add('hidden');
-      });
-
-      detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('close-detail')?.addEventListener('click', closePanel);
     }
 
     showLoading(container);
 
     getDestinations(tripId)
       .then(destinations => {
-        renderTiles(
-          container,
-          destinations,
-          dest => `
-            <div class="tile-body">
-              <h2 class="tile-title">${dest.name}</h2>
-              ${dest.category ? `<span class="tile-tag">${dest.category}</span>` : ''}
-              ${dest.address  ? `<p class="tile-address">${dest.address}</p>` : ''}
-            </div>
-          `,
-          dest => showDestinationDetail(dest)
-        );
+        container.innerHTML = '';
+        if (!destinations || destinations.length === 0) {
+          container.innerHTML = '<p class="empty">No destinations found.</p>';
+          return;
+        }
+
+        // Fixed category sections
+        const CATEGORIES = ['Shopping', 'Sights', 'Activity', 'Food'];
+        const groups = { Shopping: [], Sights: [], Activity: [], Food: [], Other: [] };
+        destinations.forEach(dest => {
+          const cat = dest.category ? dest.category.trim() : '';
+          const matched = CATEGORIES.find(c => c.toLowerCase() === cat.toLowerCase());
+          if (matched) groups[matched].push(dest);
+          else groups.Other.push(dest);
+        });
+
+        const allCategories = [...CATEGORIES];
+        if (groups.Other.length) allCategories.push('Other');
+
+        allCategories.forEach(category => {
+          const items = groups[category] || [];
+
+          const section = document.createElement('section');
+          section.className = 'category-group';
+
+          const heading = document.createElement('h2');
+          heading.className = 'category-group-title';
+          heading.textContent = category;
+          section.appendChild(heading);
+
+          const body = document.createElement('div');
+          body.className = 'category-group-body';
+
+          if (items.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'empty';
+            empty.textContent = 'No destinations in this category.';
+            body.appendChild(empty);
+          } else {
+            const row = document.createElement('div');
+            row.className = 'dest-tile-list';
+            items.forEach(dest => {
+              const tile = document.createElement('div');
+              tile.className = 'tile';
+              tile.innerHTML = `
+                <div class="tile-body">
+                  <h2 class="tile-title">${dest.name}</h2>
+                  ${dest.category ? `<span class="tile-tag">${dest.category}</span>` : ''}
+                  ${dest.address  ? `<p class="tile-address">${dest.address}</p>` : ''}
+                </div>
+              `;
+              tile.addEventListener('click', () => showDestinationDetail(dest));
+              row.appendChild(tile);
+            });
+            body.appendChild(row);
+          }
+
+          section.appendChild(body);
+
+          heading.addEventListener('click', () => {
+            const isCollapsed = section.classList.contains('collapsed');
+            if (isCollapsed) {
+              section.classList.remove('collapsed');
+              body.style.height = body.scrollHeight + 'px';
+            } else {
+              body.style.height = body.scrollHeight + 'px'; // lock before collapsing
+              requestAnimationFrame(() => {
+                section.classList.add('collapsed');
+              });
+            }
+          });
+
+          container.appendChild(section);
+
+          // Start collapsed
+          body.style.height = '0px';
+          section.classList.add('collapsed');
+        });
 
         if (selectedDestinationId) {
           const matchedDestination = destinations.find(dest => String(dest.destination_id) === String(selectedDestinationId));

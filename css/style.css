@@ -224,29 +224,102 @@ main {
   padding: 1.5rem 0;
 }
 
+/* ===== Category Groups (destinations.html) ===== */
+.category-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.category-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.dest-tile-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+}
+
+.dest-tile-list .tile {
+  flex: 0 0 200px;
+  max-width: 260px;
+}
+
+.category-group-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-text);
+  border-bottom: 2px solid var(--color-primary);
+  padding-bottom: 0.25rem;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.category-group-title::after {
+  content: '\203A';
+  font-size: 1.25rem;
+  font-weight: 400;
+  transition: transform 0.2s ease;
+  transform: rotate(90deg);
+}
+
+.category-group.collapsed .category-group-title::after {
+  transform: rotate(0deg);
+}
+
+.category-group-body {
+  overflow: hidden;
+  transition: height 0.25s ease;
+}
+
+.category-group.collapsed .category-group-body {
+  height: 0 !important;
+}
+
 /* ===== Destinations Layout ===== */
 .destinations-layout {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1.25rem;
-  align-items: start;
 }
 
-@media (min-width: 700px) {
-  .destinations-layout {
-    grid-template-columns: 1fr 340px;
-  }
+/* ===== Detail Backdrop ===== */
+.detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
 }
 
-/* ===== Detail Panel ===== */
+.detail-backdrop.hidden {
+  display: none;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ===== Detail Panel (modal overlay) ===== */
 .detail-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92vw, 520px);
+  max-height: 88vh;
+  overflow-y: auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  position: sticky;
-  top: calc(var(--header-height) + 1rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+  z-index: 201;
 }
 
 .detail-panel.hidden {

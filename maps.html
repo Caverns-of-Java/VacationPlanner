@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="manifest" href="manifest.json">
@@ -39,7 +40,7 @@
     import { getMaps, getDestinations } from './js/api.js';
     import { getParam } from './js/router.js';
     import { showLoading, showError } from './js/ui.js';
-    import { initStreetMap, addMarkers, renderPTMap } from './js/map.js';
+    import { initStreetMap, addMarkers, renderPTMap, showCurrentLocation } from './js/map.js';
 
     const tripId   = getParam('trip_id');
     const tripName = getParam('trip_name');
@@ -128,6 +129,7 @@
 
           const map = initStreetMap('street-map', lat, lng, zoom);
           addMarkers(map, destinations);
+          showCurrentLocation(map, destinations);
 
           if (streetMap?.attribution) {
             document.getElementById('street-map').insertAdjacentHTML(
